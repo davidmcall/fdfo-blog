@@ -153,9 +153,11 @@ const discMat = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
   transparent: true,
   opacity: 0.45,
+  polygonOffset: true,
+  polygonOffsetFactor: 1,
+  polygonOffsetUnits: 1,
 });
 const disc = new THREE.Mesh(discGeo, discMat);
-// Disc is in XY plane by default; rotate to be perpendicular to gradDir (XZ plane)
 disc.rotation.x = -Math.PI / 2;
 scene.add(disc);
 
@@ -166,69 +168,47 @@ const rimMat = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
   transparent: true,
   opacity: 0.7,
+  polygonOffset: true,
+  polygonOffsetFactor: -1,
+  polygonOffsetUnits: -1,
 });
 const rim = new THREE.Mesh(rimGeo, rimMat);
 rim.rotation.x = -Math.PI / 2;
+rim.position.y = 0.001;
 scene.add(rim);
 
 // ==========================================================
-// Scattered arrows — some valid, some invalid
+// Scattered arrows — 3 valid, 3 invalid (hand-picked)
 // ==========================================================
-function seededRand(seed) {
-  let x = Math.sin(seed * 9137.17 + 1.618) * 43758.5453;
-  return x - Math.floor(x);
-}
+// Each entry: [polar angle from gradient (deg), azimuth (deg), length]
+const arrowSpecs = [
+  // Valid arrows (within 90° of gradient) — slightly longer to feel "strong"
+  { polar: 20,  azimuth: 30,  length: 1.3, valid: true },
+  { polar: 45,  azimuth: 160, length: 1.2, valid: true },
+  { polar: 70,  azimuth: 280, length: 1.1, valid: true },
+  // Invalid arrows (beyond 90°)
+  { polar: 110, azimuth: 100, length: 1.0, valid: false },
+  { polar: 140, azimuth: 220, length: 0.95, valid: false },
+  { polar: 165, azimuth: 340, length: 0.9, valid: false },
+];
 
 const arrows = [];
-const nArrows = 16;
 
-for (let i = 0; i < nArrows; i++) {
-  const phi = seededRand(i * 7 + 1) * Math.PI * 2;
-  const cosTheta = seededRand(i * 7 + 2) * 2 - 1;
-  const sinTheta = Math.sqrt(1 - cosTheta * cosTheta);
+for (const spec of arrowSpecs) {
+  const theta = spec.polar * Math.PI / 180;   // polar angle from +Y
+  const phi = spec.azimuth * Math.PI / 180;   // azimuth in XZ plane
 
   const dir = new THREE.Vector3(
-    sinTheta * Math.cos(phi),
-    cosTheta,
-    sinTheta * Math.sin(phi)
+    Math.sin(theta) * Math.cos(phi),
+    Math.cos(theta),
+    Math.sin(theta) * Math.sin(phi)
   ).normalize();
 
-  // Angle from gradient
-  const angle = Math.acos(Math.max(-1, Math.min(1, dir.dot(gradDir))));
-  const angleDeg = angle * 180 / Math.PI;
-  const isValid = angleDeg < 90;
-
-  const color = isValid ? COL_VALID : COL_INVALID;
-  const length = 1.0 + seededRand(i * 7 + 3) * 0.6;
-
-  const arrow = createArrow(dir, length, color);
+  const color = spec.valid ? COL_VALID : COL_INVALID;
+  const arrow = createArrow(dir, spec.length, color);
   scene.add(arrow);
-  arrows.push({ mesh: arrow, dir, angle: angleDeg, isValid });
+  arrows.push({ mesh: arrow, dir, angle: spec.polar, isValid: spec.valid });
 }
-
-// ==========================================================
-// Axis lines (very subtle)
-// ==========================================================
-function addAxisLine(start, end, color) {
-  const geo = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(...start),
-    new THREE.Vector3(...end)
-  ]);
-  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.15 });
-  scene.add(new THREE.Line(geo, mat));
-}
-addAxisLine([-2.5, 0, 0], [2.5, 0, 0], 0x999999);
-addAxisLine([0, -0.5, 0], [0, 2.5, 0], 0x999999);
-addAxisLine([0, 0, -2.5], [0, 0, 2.5], 0x999999);
-
-// "valid" / "invalid" labels
-const validLabel = makeLabel('< 90°', COL_VALID, 0.55);
-validLabel.position.set(-1.5, 1.5, 0);
-scene.add(validLabel);
-
-const invalidLabel = makeLabel('> 90°', COL_INVALID, 0.55);
-invalidLabel.position.set(1.5, -0.7, 0);
-scene.add(invalidLabel);
 
 // ==========================================================
 // Animation loop
