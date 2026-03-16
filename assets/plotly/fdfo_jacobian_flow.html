@@ -6,9 +6,10 @@
 <title>Jacobian Gradient Transport — Fractal Tree</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#FAF8F5;padding:16px}
-.wrap{max-width:720px;margin:0 auto}
-.cbox{position:relative;width:100%;aspect-ratio:1/1;border-radius:16px;overflow:hidden;background:#FAF8F5;cursor:crosshair;box-shadow:0 1px 8px rgba(5,5,50,0.07)}
+html,body{height:100%;overflow:hidden}
+body{font-family:Arial,sans-serif;background:#fff}
+.wrap{height:100%;display:flex;flex-direction:column;align-items:center;padding:0 12px 6px}
+.cbox{flex:0 0 auto;width:100%;aspect-ratio:1.4/1;max-height:calc(100vh - 130px);border-radius:16px;overflow:hidden;background:#FAF8F5;cursor:crosshair;position:relative}
 #bg,#fg{border-radius:16px}
 #bg{position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:auto}
 #fg{position:absolute;top:0;left:0;width:100%;height:100%}
@@ -25,7 +26,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
 .ro{text-align:center;font:bold 14px Arial;color:#050532;margin:10px 0 0;min-height:20px}
 .cap{text-align:center;margin-top:10px;color:#656C75;font-size:13px;line-height:1.5}
 .loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font:bold 16px Arial;color:#050532}
-@media(max-width:600px){body{padding:8px}.btn{padding:5px 10px;font-size:11px}.cap{font-size:11px}input[type=range]::-webkit-slider-thumb{width:26px;height:26px}}
+@media(max-width:600px){.wrap{padding:0 8px 4px}.btn{padding:5px 10px;font-size:11px}.cap{font-size:11px}input[type=range]::-webkit-slider-thumb{width:26px;height:26px}}
 </style>
 </head>
 <body>
@@ -119,7 +120,8 @@ const STYLE = {
   legendHeadSize: 10, legendHeadHalf: 0.45,
   legendShaftW: 2.5, legendHitPad: 12,
 
-  // ── View padding ──
+  // ── View padding & aspect ratio ──
+  canvasAR: 1.4,      // width:height of plot (1 = square, >1 = landscape)
   padLoFrac: 0.06,    // padding below/left of origin
   padHiFrac: 0.42,    // padding above/right (room for noise sample)
   initX0: [0.72, 0.68], // initial noise sample position (fraction of span)
@@ -222,9 +224,12 @@ VX0-=padLo; VY0-=padLo;
 // leaving room in the upper-right for the initial noise sample.
 const padHi=STYLE.padHiFrac*Math.max(VX1-VX0,VY1-VY0);
 VX1+=padHi; VY1+=padHi;
-// Make square, anchored at bottom-left
+// Make square base, then extend horizontally for landscape aspect ratio
 const span=Math.max(VX1-VX0,VY1-VY0);
 VX1=VX0+span; VY1=VY0+span;
+if(STYLE.canvasAR>1){
+  VX1=VX0+span*STYLE.canvasAR;
+}
 
 // ================================================================
 // Spatial index for fast component lookup
@@ -448,7 +453,7 @@ function flowVelocity(x,y,t){
 let odePath=[];
 let odeJacs=[];
 // Initial noise sample — upper-right of view (noisy region, away from data)
-let x0=[VX0+span*STYLE.initX0[0], VY0+span*STYLE.initX0[1]];
+let x0=[VX0+(VX1-VX0)*STYLE.initX0[0], VY0+span*STYLE.initX0[1]];
 
 function integrateODE(){
   odePath=[];odeJacs=[];
