@@ -30,14 +30,14 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
   <div class="cbox" id="box">
     <canvas id="bg"></canvas>
     <canvas id="fg"></canvas>
-    <div class="loading" id="loadMsg">Rendering tree...</div>
+    <div class="loading" id="loadMsg">Rendering tree...</div>w
   </div>
   <div class="srow">
     <label>t = <span class="v" id="stepVal">0.00</span></label>
     <input type="range" id="stepSlider" min="0" max="200" value="0" step="1">
   </div>
   <div class="cap">
-    Watch how the reward gradient is transported backward through the sampling chain via the Jacobian at each step.
+    The reward gradient is transported backward through the sampling chain via the Jacobian of each step.
     <b>Click</b> to reposition the noise sample, <b>drag the dial</b> to rotate the gradient direction.
     <a id="resumeLink" style="display:none" onclick="resumeAuto()">Resume animation</a>
   </div>
