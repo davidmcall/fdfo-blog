@@ -264,7 +264,7 @@ for (let k = 0; k < SOFT_COMPS.length; k++) {
   }
 }
 
-const SIGMA_MAX = 0.7;
+const SIGMA_MAX = 1.1;
 const SIGMA2 = SIGMA_MAX * SIGMA_MAX;
 // Noise schedule power: sigma(t) = SIGMA_MAX * (1-t)^SCHED_P
 // p=1 is linear (original), p>1 makes noise linger longer before dropping,
@@ -342,21 +342,33 @@ function computeHeatmap() {
   const dyStep = (VY1 - VY0) / res;
   const proximity = new Float64Array(res * res);
 
-  // Distance field with Lorentzian falloff — max across branches (no junction inflation)
+  // Distance field with Lorentzian falloff — Boltzmann softmax across branches
+  // softmax = Σ(v_i * exp(k*v_i)) / Σ(exp(k*v_i)) — always between min and max (no inflation)
+  // k controls sharpness: higher = closer to hard max, lower = smoother blending
+  const SOFTMAX_K = 30;
   for (let j = 0; j < res; j++) {
     const py = VY0 + (j + 0.5) * dyStep;
     for (let i = 0; i < res; i++) {
       const px = VX0 + (i + 0.5) * dxStep;
-      let maxVal = 0;
+      let sumVW = 0, sumW = 0, maxV = 0;
       for (const br of branchInfo) {
         const dist = ptSegDist(px, py, br.x0, br.y0, br.x1, br.y1);
         if (dist > br.cutoff) continue;
-        // Lorentzian: 1 / (1 + (d/sigma)^2) — heavy tails, gradual soft fade
         const normD = dist / br.sigma;
         const val = 1.0 / (1.0 + normD * normD);
-        if (val > maxVal) maxVal = val;
+        if (val > maxV) maxV = val;
       }
-      proximity[j * res + i] = maxVal;
+      // Second pass with numerical stability (subtract max exponent)
+      for (const br of branchInfo) {
+        const dist = ptSegDist(px, py, br.x0, br.y0, br.x1, br.y1);
+        if (dist > br.cutoff) continue;
+        const normD = dist / br.sigma;
+        const val = 1.0 / (1.0 + normD * normD);
+        const w = Math.exp(SOFTMAX_K * (val - maxV));
+        sumVW += val * w;
+        sumW += w;
+      }
+      proximity[j * res + i] = sumW > 0 ? sumVW / sumW : 0;
     }
   }
 
@@ -650,10 +662,9 @@ function arrow(x1, y1, x2, y2, col, lw, hs) {
   fgCtx.lineCap = 'round'; fgCtx.lineJoin = 'round';
   const sf = Math.max(0, 1 - hs / len);
   fgCtx.beginPath(); fgCtx.moveTo(x1, y1); fgCtx.lineTo(x1 + dx * sf, y1 + dy * sf); fgCtx.stroke();
-  const a = Math.atan2(dy, dx), ha = 0.38;
+  const a = Math.atan2(dy, dx), ha = 0.5;
   fgCtx.beginPath(); fgCtx.moveTo(x2, y2);
   fgCtx.lineTo(x2 - hs * Math.cos(a - ha), y2 - hs * Math.sin(a - ha));
-  fgCtx.lineTo(x2 - hs * .28 * Math.cos(a), y2 - hs * .28 * Math.sin(a));
   fgCtx.lineTo(x2 - hs * Math.cos(a + ha), y2 - hs * Math.sin(a + ha));
   fgCtx.closePath(); fgCtx.fill();
 }
